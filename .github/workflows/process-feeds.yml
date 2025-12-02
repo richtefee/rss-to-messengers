@@ -12,18 +12,6 @@ jobs:
       contents: write
 
     steps:
-      - name: Check for required secrets
-        run: |
-          if [ -z "${{ secrets.WHATSAPP_API_TOKEN }}" ]; then
-            echo "Error: WHATSAPP_API_TOKEN secret is not set"
-            exit 1
-          fi
-          if [ -z "${{ secrets.WHATSAPP_CHANNEL }}" ]; then
-            echo "Error: WHATSAPP_CHANNEL secret is not set"
-            exit 1
-          fi
-          echo "All required secrets are present"
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -43,26 +31,50 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
 
+      - name: Check secrets
+        run: |
+          WHATSAPP_COMPLETE=false
+          TELEGRAM_COMPLETE=false
+
+          if [ -n "${{ secrets.WHATSAPP_API_TOKEN }}" ] && [ -n "${{ secrets.WHATSAPP_CHANNEL }}" ]; then
+            WHATSAPP_COMPLETE=true
+          elif [ -n "${{ secrets.WHATSAPP_API_TOKEN }}" ] || [ -n "${{ secrets.WHATSAPP_CHANNEL }}" ]; then
+            echo "Warning: WhatsApp secret set is incomplete. Messages may fail."
+          fi
+
+          if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            TELEGRAM_COMPLETE=true
+          elif [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] || [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            echo "Warning: Telegram secret set is incomplete. Messages may fail."
+          fi
+
+          if [ "$WHATSAPP_COMPLETE" = false ] && [ "$TELEGRAM_COMPLETE" = false ]; then
+            echo "Error: No messenger is fully configured. Exiting."
+            exit 1
+          fi
+
       - name: Process feeds
         env:
           WHATSAPP_API_TOKEN: ${{ secrets.WHATSAPP_API_TOKEN }}
           WHATSAPP_CHANNEL: ${{ secrets.WHATSAPP_CHANNEL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: ruby process_feeds.rb
 
-      - name: Check for changes
+      - name: Check for changes in seen folder
         id: check-changes
         run: |
-          if git diff --quiet feeds.json; then
+          if git diff --quiet seen/; then
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "changed=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Save changes to feeds.json
+      - name: Save changes to seen folder
         if: steps.check-changes.outputs.changed == 'true'
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add feeds.json
-          git commit -m "Update feeds.json with processed items"
+          git add seen/
+          git commit -m "Update seen items"
           git push
