@@ -1,7 +1,6 @@
 # lib/processor.rb
 # frozen_string_literal: true
 
-require 'dotenv/load'
 require_relative 'rss_reader'
 require_relative 'message_builder'
 require_relative 'messengers'
