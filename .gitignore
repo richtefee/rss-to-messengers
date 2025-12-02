@@ -1,0 +1,14 @@
+#.gitignore
+
+# Secrets
+.env
+
+# Local test feeds
+feeds.json
+
+# Ignore all files inside 'seen' but keep the folder
+seen/*
+!seen/.gitkeep
+
+#Ruby:
+.bundle
